@@ -1,0 +1,39 @@
+# ConfigSentinel - Docker Compose
+# --------------------------------------
+# Brings up the backend API (and, for local dev, the React frontend) with
+# one command:  docker compose -f docker/docker-compose.yml up --build
+#
+# Secrets are read from a .env file at the repo root (see .env.example) -
+# never hardcoded here.
+
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: configsentinel-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ../.env
+    volumes:
+      - configsentinel_data:/app/backend  # persists the SQLite dev DB across restarts
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: ../docker/Dockerfile.frontend
+    container_name: configsentinel-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  configsentinel_data:

@@ -1,0 +1,55 @@
+---
+# ConfigSentinel - Remediation Playbook
+# -------------------------------------------
+# Each task below is tagged so the backend (remediation/ansible_runner.py)
+# can run EXACTLY ONE fixed, reviewed action per approved drift incident,
+# using `--tags <tag>` and `--extra-vars`. Nothing here is generated
+# dynamically from AI text or free-form input - only these pre-written
+# tasks can ever run, and only after a human clicks "Remediate" in the
+# dashboard.
+
+- name: ConfigSentinel Remediation
+  hosts: configsentinel_servers
+  become: true
+  vars:
+    target_item: ""      # e.g. "nginx" - passed in via --extra-vars
+    desired_value: ""    # e.g. "running" - passed in via --extra-vars
+
+  tasks:
+    - name: "[fix_service] Ensure the target service is in the desired state"
+      ansible.builtin.systemd:
+        name: "{{ target_item }}"
+        state: "{{ desired_value }}"
+        enabled: true
+      tags: fix_service
+
+    - name: "[install_package] Ensure the target package is installed"
+      ansible.builtin.package:
+        name: "{{ target_item }}"
+        state: present
+      tags: install_package
+
+    - name: "[create_user] Ensure the required user exists"
+      ansible.builtin.user:
+        name: "{{ target_item }}"
+        state: present
+        shell: /bin/bash
+        create_home: true
+      tags: create_user
+
+    - name: "[restore_file] Restore a known-good config file from backup"
+      ansible.builtin.copy:
+        src: "files/backups/{{ target_item | basename }}"
+        dest: "{{ target_item }}"
+        owner: root
+        group: root
+        mode: "0644"
+        backup: true
+      tags: restore_file
+
+    - name: "[review_port] Log that a port change needs manual review"
+      ansible.builtin.debug:
+        msg: >
+          Port drift on {{ target_item }} was flagged for manual review.
+          Ports are never auto-closed/opened for security reasons.
+      tags: review_port

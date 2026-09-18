@@ -1,0 +1,30 @@
+# ConfigSentinel - Desired Configuration State
+# ------------------------------------------------
+# This file is the SOURCE OF TRUTH. ConfigSentinel scans the real server
+# and compares its actual state against exactly this file. Any difference
+# is reported as "configuration drift".
+#
+# Edit this file to change what "compliant" means for your server.
+
+packages:
+  - nginx
+  - openssh-server
+
+services:
+  nginx:
+    state: running
+  ssh:
+    state: running
+
+ports:
+  - 22
+  - 80
+
+users:
+  - admin
+  - ec2-user
+
+files:
+  # Important config files that must exist and must not be altered.
+  - path: /etc/nginx/nginx.conf
+    must_exist: true

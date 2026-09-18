@@ -1,0 +1,96 @@
+name: ConfigSentinel CI/CD
+
+# Developer Push -> GitHub -> Run Tests -> Build Application -> Docker Build
+# -> Security Checks -> Deploy
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ---------- 1. Run backend tests ----------
+  test-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Run unit tests
+        env:
+          DEMO_MODE: "true"
+          SECRET_KEY: "ci-test-secret"
+          DATABASE_URL: "sqlite:///./test.db"
+        run: |
+          cd backend
+          pytest ../tests -v
+
+  # ---------- 2. Build the React frontend ----------
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package.json
+
+      - name: Install & build frontend
+        working-directory: frontend
+        run: |
+          npm install
+          npm run build
+
+  # ---------- 3. Build the Docker image ----------
+  docker-build:
+    needs: [test-backend, build-frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build backend Docker image
+        run: docker build -f docker/Dockerfile -t configsentinel-backend:${{ github.sha }} .
+
+  # ---------- 4. Security checks ----------
+  security-checks:
+    needs: docker-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python dependency vulnerability scan
+        run: |
+          pip install pip-audit
+          pip-audit -r backend/requirements.txt || true   # report only, don't fail the demo pipeline
+
+      - name: Secret scanning (basic)
+        run: |
+          echo "Checking for accidentally committed secrets..."
+          ! grep -RIn "AKIA[0-9A-Z]\{16\}" . --exclude-dir=.git || (echo "AWS key pattern found!" && exit 1)
+
+  # ---------- 5. Deploy (placeholder - wire up to your target) ----------
+  deploy:
+    needs: security-checks
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy step (placeholder)
+        run: |
+          echo "Add your deployment commands here, e.g.:"
+          echo "- docker push to a registry"
+          echo "- ssh into EC2 and docker compose pull && up -d"
+          echo "- or an AWS CodeDeploy / ECS update-service call"
+        # Real secrets (AWS keys, SSH keys) belong in GitHub Actions
+        # "Secrets" settings, referenced as \${{ secrets.NAME }} - never
+        # committed to this file.

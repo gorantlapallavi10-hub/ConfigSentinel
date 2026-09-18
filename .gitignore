@@ -1,0 +1,23 @@
+# Env & secrets
+.env
+*.pem
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+venv/
+*.db
+
+# Node
+node_modules/
+frontend/build/
+
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/terraform.tfvars
+
+# OS
+.DS_Store
